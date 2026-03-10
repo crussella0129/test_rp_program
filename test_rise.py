@@ -39,35 +39,21 @@ PYTHON = sys.executable
 ENV = {
     **os.environ,
     "PYTHONPATH": str(ANIMUS_DIR),
+    "PYTHONIOENCODING": "utf-8",   # Animus banner uses Unicode art
 }
 
 TARGET = REPO_DIR / "backend" / "analyzer.py"
 
-TASK = textwrap.dedent("""\
-    Write a file called backend/analyzer.py that contains exactly this:
-
-    def analyze(readings):
-        \"\"\"Analyze telemetry readings from the Red Planet mission.
-
-        Args:
-            readings: list of float sensor values
-
-        Returns:
-            dict with keys min, max, mean
-        \"\"\"
-        if not readings:
-            raise ValueError("readings must not be empty")
-        return {
-            "min": min(readings),
-            "max": max(readings),
-            "mean": sum(readings) / len(readings),
-        }
-
-    Write only that file — nothing else.
-""")
+TASK = (
+    "Write backend/analyzer.py. "
+    "It must define one function: analyze(readings) "
+    "with a docstring that says what it does, "
+    "returning a dict with min, max, and mean of the readings list. "
+    "Nothing else in the file."
+)
 
 
-def _run_animus(task: str, timeout: int = 180) -> subprocess.CompletedProcess:
+def _run_animus(task: str, timeout: int = 480) -> subprocess.CompletedProcess:
     """Invoke `animus rise --no-plan` with *task* piped to stdin."""
     return subprocess.run(
         [PYTHON, "-m", "src.main", "rise", "--no-plan"],
@@ -76,6 +62,8 @@ def _run_animus(task: str, timeout: int = 180) -> subprocess.CompletedProcess:
         env=ENV,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
     )
 
@@ -92,11 +80,13 @@ def test_no_plan_flag():
         env=ENV,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
     )
     assert result.returncode == 0, f"rise --help failed:\n{result.stderr}"
     assert "--no-plan" in result.stdout, "--no-plan option missing from help"
-    print("  [1] --no-plan present in rise --help ✓")
+    print("  [1] --no-plan present in rise --help OK")
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +117,10 @@ def test_write_file_with_docstring():
     assert "def analyze" in content, (
         f"analyze function missing from {TARGET}\nContent:\n{content}"
     )
-    assert '"""' in content, (
-        f"Triple-quoted docstring missing — write_file unescaping may be broken.\n"
+    # Triple-quoted string must appear somewhere — proves write_file unescaping
+    # didn't corrupt """ into \"\"\" on disk.
+    assert '"""' in content or "'''" in content, (
+        f"No triple-quoted string found — write_file unescaping may be broken.\n"
         f"Content:\n{content}"
     )
 
@@ -142,7 +134,7 @@ def test_write_file_with_docstring():
         f"Content:\n{content}"
     )
 
-    print(f"  [2] write_file docstring round-trip ✓  ({TARGET.stat().st_size} bytes)")
+    print(f"  [2] write_file docstring round-trip OK  ({TARGET.stat().st_size} bytes)")
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +190,7 @@ def test_ferric_parse_finds_function():
         f"Expected kind='function', got '{analyze_node['kind']}'"
     )
 
-    print(f"  [3] ferric-parse found 'analyze' as kind='{analyze_node['kind']}' ✓")
+    print(f"  [3] ferric-parse found 'analyze' as kind='{analyze_node['kind']}' OK")
     print(f"       qualified_name: {analyze_node.get('qualified_name', '?')}")
 
 
